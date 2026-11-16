@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Deploy a database</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
+  --bg:#f1f4f1;--panel:#fbfcfb;--ink:#14211c;--muted:#5b6b64;--line:#d4dbd6;
+  --accent:#0f6b63;--accent-ink:#ffffff;--accent-soft:#dcece9;--warn:#9a5b00;--warn-soft:#f6e8cf;
+  --ok:#1b7a43;--log-bg:#14211c;--log-ink:#cfe3da;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  color-scheme:dark;
+  --bg:#0d1512;--panel:#141f1b;--ink:#e6efe9;--muted:#93a69c;--line:#26352f;
+  --accent:#4fb8ab;--accent-ink:#0a1411;--accent-soft:#17332f;--warn:#e3a94a;--warn-soft:#33270f;
+  --ok:#5fcf8b;--log-bg:#0a100e;--log-ink:#bcd5c9;}}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0d1512;--panel:#141f1b;--ink:#e6efe9;--muted:#93a69c;--line:#26352f;
+  --accent:#4fb8ab;--accent-ink:#0a1411;--accent-soft:#17332f;--warn:#e3a94a;--warn-soft:#33270f;
+  --ok:#5fcf8b;--log-bg:#0a100e;--log-ink:#bcd5c9;}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif}
+.app{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+nav{border-right:1px solid var(--line);padding:20px 14px;background:var(--panel)}
+.brand{font-weight:700;font-size:17px;padding:0 10px 18px}
+nav a{display:block;padding:8px 10px;border-radius:6px;color:var(--muted);text-decoration:none;font-weight:500}
+nav a.on{background:var(--accent-soft);color:var(--accent)}
+nav a:hover{color:var(--ink)}
+main{padding:28px clamp(16px,4vw,40px);max-width:1120px;width:100%}
+h1{font-size:26px;margin:0 0 4px;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:0 0 24px}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:24px;align-items:start}
+section.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px;margin-bottom:16px}
+h2{font-size:16px;margin:0 0 14px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+label.f{display:block;font-weight:600;font-size:13px;margin-bottom:6px}
+input[type=text],select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit}
+input:focus-visible,select:focus-visible,button:focus-visible,.opt:has(input:focus-visible),nav a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.opt{position:relative;border:1px solid var(--line);border-radius:8px;padding:12px;cursor:pointer;background:var(--bg)}
+.opt input{position:absolute;opacity:0;inset:0;cursor:pointer}
+.opt b{display:block}
+.opt span{color:var(--muted);font-size:13px}
+.opt:has(input:checked){border-color:var(--accent);background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent)}
+.hint{color:var(--muted);font-size:13px;margin:6px 0 0}
+.toggle{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:10px 0;border-top:1px solid var(--line)}
+.toggle:first-of-type{border-top:0}
+.toggle small{display:block;color:var(--muted)}
+.sw{appearance:none;width:40px;height:22px;border-radius:11px;background:var(--line);position:relative;cursor:pointer;flex:none;transition:background .15s}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .15s}
+.sw:checked{background:var(--accent)}
+.sw:checked::after{transform:translateX(18px)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.sticky{position:sticky;top:16px}
+dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:6px 12px}
+dt{color:var(--muted)}dd{margin:0;text-align:right;font-weight:500;overflow-wrap:anywhere}
+.cost{font-size:30px;font-weight:700;letter-spacing:-.02em;margin:14px 0 2px}
+.btn{width:100%;margin-top:14px;padding:11px;border:0;border-radius:8px;background:var(--accent);color:var(--accent-ink);font:600 15px "Public Sans",system-ui,sans-serif;cursor:pointer}
+.btn:disabled{opacity:.6;cursor:progress}
+.note{background:var(--warn-soft);color:var(--warn);border-radius:6px;padding:8px 10px;font-size:13px;margin-top:12px}
+.steps{list-style:none;margin:0 0 12px;padding:0;display:grid;gap:6px}
+.steps li{display:flex;gap:10px;align-items:center;color:var(--muted)}
+.steps li::before{content:"";width:12px;height:12px;border-radius:50%;border:2px solid var(--line);flex:none}
+.steps li.run{color:var(--ink)}.steps li.run::before{border-color:var(--accent);border-top-color:transparent;animation:spin .8s linear infinite}
+.steps li.done{color:var(--ink)}.steps li.done::before{background:var(--ok);border-color:var(--ok)}
+@keyframes spin{to{transform:rotate(360deg)}}
+pre{margin:0;background:var(--log-bg);color:var(--log-ink);padding:12px;border-radius:8px;font:12.5px/1.6 "JetBrains Mono",ui-monospace,Menlo,monospace;max-height:180px;overflow:auto}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:520px}
+th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line)}
+th{color:var(--muted);font-weight:500;font-size:13px}
+.tag{padding:2px 8px;border-radius:10px;font-size:12px;font-weight:600}
+.tag.ok{background:var(--accent-soft);color:var(--ok)}.tag.fail{background:var(--warn-soft);color:var(--warn)}
+.theme{margin:16px 10px 0;background:none;border:1px solid var(--line);color:var(--muted);border-radius:6px;padding:6px 10px;cursor:pointer;font:inherit}
+@media (max-width:860px){
+  .app{grid-template-columns:1fr}
+  nav{border-right:0;border-bottom:1px solid var(--line);display:flex;gap:6px;align-items:center;overflow-x:auto;padding:10px}
+  .brand{padding:0 10px 0 4px}.theme{margin:0 0 0 auto}
+  .layout{grid-template-columns:1fr}.sticky{position:static}.row{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){.steps li.run::before{animation:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav aria-label="Main">
+    <div class="brand">Stackbase</div>
+    <a href="#new" class="on">New database</a>
+    <a href="#history">Deployments</a>
+    <a href="#history">Backups</a>
+    <a href="#history">Settings</a>
+    <button class="theme" id="theme" type="button">Switch theme</button>
+  </nav>
+  <main>
+    <h1>Deploy a database</h1>
+    <p class="sub">Choose an engine, size it, and launch. You can resize later without downtime.</p>
+    <div class="layout" id="new">
+      <div>
+        <section class="card">
+          <h2>Basics</h2>
+          <div class="row">
+            <div><label class="f" for="name">Database name</label><input type="text" id="name" value="orders-prod" maxlength="30"><p class="hint" id="nameHint">Lowercase letters, numbers and dashes.</p></div>
+            <div><label class="f" for="env">Environment</label><select id="env"><option>Production</option><option>Staging</option><option>Development</option></select></div>
+          </div>
+          <label class="f" style="margin-top:16px">Engine</label>
+          <div class="opts" role="radiogroup" aria-label="Engine" id="engine">
+            <label class="opt"><input type="radio" name="engine" value="PostgreSQL" checked><b>PostgreSQL</b><span>Relational, extensible</span></label>
+            <label class="opt"><input type="radio" name="engine" value="MySQL"><b>MySQL</b><span>Relational, widely used</span></label>
+            <label class="opt"><input type="radio" name="engine" value="MongoDB"><b>MongoDB</b><span>Document store</span></label>
+          </div>
+          <div class="row" style="margin-top:16px">
+            <div><label class="f" for="ver">Version</label><select id="ver"></select></div>
+            <div><label class="f" for="region">Region</label><select id="region"><option>Singapore (ap-southeast-1)</option><option>Frankfurt (eu-central-1)</option><option>Virginia (us-east-1)</option><option>Oregon (us-west-2)</option></select></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Size</h2>
+          <div class="opts" role="radiogroup" aria-label="Instance size" id="size">
+            <label class="opt"><input type="radio" name="size" value="Small" data-price="28" checked><b>Small</b><span>2 vCPU · 4 GB RAM</span></label>
+            <label class="opt"><input type="radio" name="size" value="Medium" data-price="96"><b>Medium</b><span>4 vCPU · 16 GB RAM</span></label>
+            <label class="opt"><input type="radio" name="size" value="Large" data-price="310"><b>Large</b><span>16 vCPU · 64 GB RAM</span></label>
+          </div>
+          <label class="f" for="storage" style="margin-top:16px">Storage: <span id="storageVal">100</span> GB</label>
+          <input type="range" id="storage" min="20" max="2000" step="10" value="100">
+          <p class="hint">Storage grows automatically up to 2 TB.</p>
+        </section>
+
+        <section class="card">
+          <h2>Reliability</h2>
+          <div class="toggle"><div><b>High availability</b><small>Standby replica in a second zone with automatic failover</small></div><input class="sw" type="checkbox" id="ha" aria-label="High availability" checked></div>
+          <div class="toggle"><div><b>Daily backups</b><small>Point-in-time recovery within the retention window</small></div><input class="sw" type="checkbox" id="bk" aria-label="Daily backups" checked></div>
+          <div id="retWrap" style="margin-top:8px"><label class="f" for="ret">Backup retention</label><select id="ret"><option>7 days</option><option selected>14 days</option><option>30 days</option></select></div>
+        </section>
+
+        <section class="card" id="history">
+          <h2>Recent deployments</h2>
+          <div class="scroll"><table>
+            <thead><tr><th>Name</th><th>Engine</th><th>Region</th><th>Status</th><th>Started</th></tr></thead>
+            <tbody id="hist">
+              <tr><td>billing-staging</td><td>PostgreSQL 16</td><td>Frankfurt</td><td><span class="tag ok">Running</span></td><td>2 days ago</td></tr>
+              <tr><td>catalog-dev</td><td>MongoDB 7</td><td>Oregon</td><td><span class="tag ok">Running</span></td><td>5 days ago</td></tr>
+              <tr><td>sessions-prod</td><td>MySQL 8.4</td><td>Virginia</td><td><span class="tag fail">Failed: quota reached</span></td><td>9 days ago</td></tr>
+            </tbody>
+          </table></div>
+        </section>
+      </div>
+
+      <aside class="sticky">
+        <section class="card" aria-live="polite">
+          <h2>Summary</h2>
+          <dl>
+            <dt>Name</dt><dd id="sName"></dd>
+            <dt>Engine</dt><dd id="sEng"></dd>
+            <dt>Size</dt><dd id="sSize"></dd>
+            <dt>Storage</dt><dd id="sSto"></dd>
+            <dt>Region</dt><dd id="sReg"></dd>
+            <dt>Availability</dt><dd id="sHa"></dd>
+            <dt>Backups</dt><dd id="sBk"></dd>
+          </dl>
+          <div class="cost" id="cost"></div>
+          <div class="hint">Estimated monthly cost, billed hourly.</div>
+          <div class="note" id="warn" hidden>Production databases should keep high availability and backups on.</div>
+          <button class="btn" id="deploy" type="button">Deploy database</button>
+        </section>
+        <section class="card" id="progress" hidden>
+          <h2 id="pTitle">Deploying…</h2>
+          <ul class="steps" id="steps">
+            <li>Reserve capacity</li><li>Provision storage</li><li>Start instances</li><li>Configure backups</li><li>Run health checks</li>
+          </ul>
+          <pre id="log" aria-label="Deployment log"></pre>
+        </section>
+      </aside>
+    </div>
+  </main>
+</div>
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id)};
+  var versions={PostgreSQL:['17','16','15'],MySQL:['8.4','8.0'],MongoDB:['8.0','7.0']};
+  var engineMult={PostgreSQL:1,MySQL:1,MongoDB:1.15};
+  function val(n){return document.querySelector('input[name="'+n+'"]:checked')}
+  function fillVersions(){
+    var e=val('engine').value;
+    $('ver').innerHTML=versions[e].map(function(v){return '<option>'+v+'</option>'}).join('');
+  }
+  function update(){
+    var e=val('engine').value,s=val('size'),sto=+$('storage').value,ha=$('ha').checked,bk=$('bk').checked;
+    var name=$('name').value.trim();
+    var ok=/^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$/.test(name);
+    $('nameHint').textContent=ok?'Lowercase letters, numbers and dashes.':'Use 3 to 30 lowercase letters, numbers or dashes.';
+    $('nameHint').style.color=ok?'':'var(--warn)';
+    $('deploy').disabled=!ok||running;
+    $('storageVal').textContent=sto;
+    $('retWrap').hidden=!bk;
+    var price=(+s.dataset.price)*engineMult[e]*(ha?2:1)+sto*0.11+(bk?sto*0.04:0);
+    $('sName').textContent=name||'Not set';
+    $('sEng').textContent=e+' '+$('ver').value;
+    $('sSize').textContent=s.value;
+    $('sSto').textContent=sto+' GB';
+    $('sReg').textContent=$('region').value.split(' (')[0];
+    $('sHa').textContent=ha?'Multi-zone':'Single zone';
+    $('sBk').textContent=bk?$('ret').value:'Off';
+    $('cost').textContent='$'+price.toFixed(2);
+    $('warn').hidden=!($('env').value==='Production'&&(!ha||!bk));
+  }
+  var running=false;
+  function deploy(){
+    if(running)return;
+    running=true;update();
+    var steps=[].slice.call($('steps').children),log=$('log');
+    $('progress').hidden=false;$('pTitle').textContent='Deploying…';
+    steps.forEach(function(li){li.className=''});log.textContent='';
+    var name=$('name').value.trim(),eng=val('engine').value+' '+$('ver').value;
+    var msgs=[
+      ['Reserving '+val('size').value+' capacity in '+$('region').value.split(' (')[0]],
+      ['Provisioning '+$('storage').value+' GB encrypted volume'],
+      ['Starting '+eng+($('ha').checked?' primary and standby':' instance')],
+      [$('bk').checked?'Scheduling daily backups, keeping '+$('ret').value:'Backups skipped'],
+      ['Connection check passed on port '+(val('engine').value==='MySQL'?3306:val('engine').value==='MongoDB'?27017:5432)]
+    ];
+    var i=0;
+    function next(){
+      if(i>0)steps[i-1].className='done';
+      if(i===steps.length){
+        log.textContent+='\nReady: '+name+'.db.stackbase.example\n';log.scrollTop=log.scrollHeight;
+        $('pTitle').textContent='Deployed';running=false;update();
+        var tr=document.createElement('tr');
+        tr.innerHTML='<td></td><td></td><td></td><td><span class="tag ok">Running</span></td><td>Just now</td>';
+        tr.children[0].textContent=name;tr.children[1].textContent=eng;tr.children[2].textContent=$('region').value.split(' (')[0];
+        $('hist').insertBefore(tr,$('hist').firstChild);
+        return;
+      }
+      steps[i].className='run';
+      log.textContent+=new Date().toLocaleTimeString([], {hour12:false})+'  '+msgs[i][0]+'\n';
+      log.scrollTop=log.scrollHeight;
+      i++;setTimeout(next,900);
+    }
+    next();
+  }
+  document.querySelectorAll('input[name="engine"]').forEach(function(r){r.addEventListener('change',function(){fillVersions();update()})});
+  ['name','env','ver','region','size','storage','ha','bk','ret'].forEach(function(id){
+    var el=$(id);if(el){el.addEventListener('input',update);el.addEventListener('change',update)}
+  });
+  document.querySelectorAll('input[name="size"]').forEach(function(r){r.addEventListener('change',update)});
+  $('deploy').addEventListener('click',deploy);
+  $('theme').addEventListener('click',function(){
+    var r=document.documentElement,dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;
+    r.dataset.theme=dark?'light':'dark';
+  });
+  fillVersions();update();
+})();
+</script>
+</body>
+</html>
