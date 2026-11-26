@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Database key explorer (Supabase)</title>
+<meta name="description" content="Try each database key rule against a real Supabase database.">
+<meta name="theme-color" content="#0f6b63">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='32' height='32' rx='7' fill='%230f6b63'/%3E%3Ccircle cx='11' cy='16' r='4.5' fill='none' stroke='white' stroke-width='3'/%3E%3Cpath d='M15.5 16H27M23 16v4.5M27 16v4.5' fill='none' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light;
+--bg:#f1f4f1;--panel:#fbfcfb;--ink:#14211c;--muted:#5b6b64;--line:#d4dbd6;--accent:#0f6b63;--accent-soft:#dcece9;
+--warn:#9a5b00;--warn-soft:#f6e8cf;--ok:#1b7a43;--log-bg:#14211c;--log-ink:#cfe3da;
+--pk:#0f6b63;--fk:#2b5fb3;--ak:#9a5b00;--ck:#6b3fa0}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;
+--bg:#0d1512;--panel:#141f1b;--ink:#e6efe9;--muted:#93a69c;--line:#26352f;--accent:#4fb8ab;--accent-soft:#17332f;
+--warn:#e3a94a;--warn-soft:#33270f;--ok:#5fcf8b;--log-bg:#0a100e;--log-ink:#bcd5c9;
+--pk:#4fb8ab;--fk:#7ca6f0;--ak:#e3a94a;--ck:#b894e6}}
+:root[data-theme="dark"]{color-scheme:dark;
+--bg:#0d1512;--panel:#141f1b;--ink:#e6efe9;--muted:#93a69c;--line:#26352f;--accent:#4fb8ab;--accent-soft:#17332f;
+--warn:#e3a94a;--warn-soft:#33270f;--ok:#5fcf8b;--log-bg:#0a100e;--log-ink:#bcd5c9;
+--pk:#4fb8ab;--fk:#7ca6f0;--ak:#e3a94a;--ck:#b894e6}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 "Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif}
+.top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}
+h1{font-size:26px;margin:0 0 6px;letter-spacing:-.01em}
+.def{margin:0 0 20px;max-width:62ch;color:var(--muted)}
+h2{font-size:16px;margin:0 0 12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;margin-bottom:16px}
+.bar{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;background:var(--accent-soft);color:var(--accent);border-radius:8px;padding:8px 14px;margin-bottom:16px}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:480px}
+th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:top}
+th{font-weight:500;font-size:13px;color:var(--muted)}
+td.sql{white-space:normal;font:12.5px/1.5 "JetBrains Mono",ui-monospace,monospace;min-width:260px;overflow-wrap:anywhere}
+.tname{font:500 13px "JetBrains Mono",ui-monospace,monospace;margin:12px 0 4px}
+.tname:first-child{margin-top:0}
+tr.new td{background:var(--accent-soft)}
+.b{display:inline-block;font-size:11px;font-weight:700;padding:1px 6px;border-radius:8px;margin-left:6px}
+.b-PK{color:var(--pk);background:color-mix(in srgb,var(--pk) 16%,transparent)}
+.b-FK{color:var(--fk);background:color-mix(in srgb,var(--fk) 16%,transparent)}
+.b-AK{color:var(--ak);background:color-mix(in srgb,var(--ak) 16%,transparent)}
+.b-CK{color:var(--ck);background:color-mix(in srgb,var(--ck) 16%,transparent)}
+.ff{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px}
+.ff>div{flex:1 1 150px}
+label.f{display:block;font-weight:600;font-size:13px;margin-bottom:6px}
+input,select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit}
+input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn{padding:9px 16px;border:0;border-radius:8px;background:var(--accent);color:var(--bg);font:600 14px "Public Sans",system-ui,sans-serif;cursor:pointer;flex:none}
+.btn:disabled{opacity:.6;cursor:progress}
+.btn.ghost{background:none;border:1px solid var(--line);color:var(--muted)}
+.chips{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}
+.chip{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:16px;padding:5px 12px;font:inherit;font-size:13px;cursor:pointer}
+.chip:hover{border-color:var(--accent)}
+.hint{color:var(--muted);font-size:13px}
+.checks{display:flex;gap:14px;flex-wrap:wrap;margin:6px 0 8px}
+.checks label{display:flex;gap:6px;align-items:center;cursor:pointer}
+.checks input{width:auto}
+.res{border-radius:8px;padding:12px 14px;margin-top:12px}
+.res.ok{background:var(--accent-soft);color:var(--ok)}
+.res.no{background:var(--warn-soft);color:var(--warn)}
+.res code{display:block;margin-top:6px;font:12.5px/1.5 "JetBrains Mono",ui-monospace,monospace;overflow-wrap:anywhere}
+pre{margin:0;background:var(--log-bg);color:var(--log-ink);padding:12px;border-radius:8px;overflow:auto;font:12.5px/1.6 "JetBrains Mono",ui-monospace,monospace}
+p{margin:0}
+.ok-t{color:var(--ok);font-weight:600}.no-t{color:var(--warn);font-weight:600}
+.hh{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px}
+.hh h2{margin:0}
+
+dialog{border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--ink);padding:0;width:min(440px,calc(100vw - 32px));box-shadow:0 16px 48px rgba(0,0,0,.28)}
+dialog::backdrop{background:rgba(10,16,14,.55)}
+.dlg{padding:20px}
+.dlg h2{margin:0 0 4px;font-size:17px}
+.dlg label.f{margin-top:14px}
+.keyrow{display:flex;gap:8px}
+.keyrow input{flex:1;min-width:0}
+.dlg .hint{margin-top:12px}
+.okmsg{color:var(--ok)}
+.rem{display:flex;gap:8px;align-items:center;margin-top:14px;font-size:13px;color:var(--muted);cursor:pointer}
+.rem input{width:auto}
+.dlgfoot{display:flex;gap:8px;justify-content:flex-end;align-items:center;flex-wrap:wrap;margin-top:16px}
+.dlgfoot .gap{margin-right:auto}
+
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--panel);z-index:25}
+.skip{position:absolute;left:12px;top:-70px;background:var(--accent);color:var(--bg);padding:8px 14px;border-radius:0 0 8px 8px;z-index:30;font-weight:600;text-decoration:none}
+.skip:focus{top:0}
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--panel);border-bottom:1px solid var(--line)}
+.bar1{display:flex;align-items:center;gap:10px 12px;flex-wrap:wrap;padding:10px clamp(16px,4vw,40px);max-width:1100px;margin:0 auto;width:100%}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;color:var(--ink);text-decoration:none;margin-right:auto}
+.brand svg{width:28px;height:28px;flex:none}
+.pill{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--muted);border:1px solid var(--line);border-radius:16px;padding:4px 12px;background:var(--bg)}
+.pill i{width:9px;height:9px;border-radius:50%;background:var(--warn)}
+.pill.on{color:var(--ok)}.pill.on i{background:var(--ok)}
+.theme{background:none;border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:6px 12px;cursor:pointer;font:inherit;font-size:13px}
+.theme:hover{color:var(--ink);border-color:var(--accent)}
+nav.tabs{border-top:1px solid var(--line)}
+.tabs-in{display:flex;gap:0;overflow-x:auto;padding:0 clamp(8px,2.4vw,28px);max-width:1100px;margin:0 auto;scrollbar-width:thin}
+nav a{flex:none;padding:11px 10px;font-size:14px;color:var(--muted);text-decoration:none;font-weight:500;border-bottom:3px solid transparent;white-space:nowrap}
+nav a:hover{color:var(--ink)}
+nav a[aria-current]{color:var(--accent);border-bottom-color:var(--accent);font-weight:700}
+main{padding:24px clamp(16px,4vw,40px) 60px;max-width:1100px;width:100%;margin:0 auto}
+main:focus{outline:none}
+.plain{background:var(--accent-soft);border-left:4px solid var(--accent);border-radius:6px;padding:10px 14px;margin:0 0 18px;max-width:70ch}
+.plain b{color:var(--accent)}
+.controls{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between}
+.controls h2{margin:0 0 2px}
+.cinfo{color:var(--muted);font-size:13px}
+.ctl{display:flex;gap:8px;flex-wrap:wrap}
+.rl{margin:10px 0 0;padding-left:20px}
+.btn.danger{background:var(--warn);color:var(--bg)}
+.btn.danger:disabled{opacity:.45;cursor:not-allowed}
+.chip[aria-pressed="true"]{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+.chip.dng{color:var(--warn);border-color:var(--warn)}
+.chip:disabled{opacity:.6;cursor:progress}
+.rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.rule{border:1px solid var(--line);border-radius:8px;padding:12px;background:var(--bg)}
+.rule b{display:block;margin-bottom:4px;color:var(--accent)}
+.ops{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-bottom:16px}
+.op{background:var(--panel);border:1px solid var(--line);border-top:4px solid var(--c);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:8px}
+.op-c{--c:var(--pk)}.op-r{--c:var(--fk)}.op-u{--c:var(--ak)}.op-d{--c:var(--warn)}
+.op .oh{display:flex;align-items:center;gap:10px}
+.op .l{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;font-weight:800;color:var(--bg);background:var(--c);flex:none}
+.op h3{margin:0;font-size:17px}
+.op p{margin:0;color:var(--muted);font-size:14px}
+.op .tag{align-self:flex-start;font-size:12px;font-weight:700;color:var(--c);background:color-mix(in srgb,var(--c) 14%,transparent);padding:2px 10px;border-radius:10px}
+.op .oa{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:auto;padding-top:6px}
+.pillc{font-size:13px;font-weight:600;color:var(--muted);background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:4px 12px;flex:none;align-self:center;margin-top:20px}
+.fh{margin:4px 0 0;color:var(--muted);font-size:12.5px}
+.idline{margin:12px 0 0;padding:8px 10px;background:var(--accent-soft);border-radius:6px;font-size:13px}
+#crudGrid tbody tr:hover td{background:color-mix(in srgb,var(--accent) 7%,transparent)}
+#crudGrid tbody tr.new td{background:var(--accent-soft)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:16px}
+.stat{display:flex;flex-direction:column;align-items:flex-start;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;cursor:pointer;color:var(--ink);font:inherit;text-align:left}
+.stat:hover{border-color:var(--accent)}
+.stat[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);background:var(--accent-soft)}
+.stat .sn{font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.stat .sl{font:500 12px "JetBrains Mono",ui-monospace,monospace;color:var(--muted)}
+.raw{max-height:62vh;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.raw table{min-width:0}
+.raw th{position:sticky;top:0;background:var(--panel);z-index:1;border-bottom:2px solid var(--line)}
+.raw td{font:12.5px "JetBrains Mono",ui-monospace,monospace}
+.raw td.sql{min-width:260px;white-space:normal;overflow-wrap:anywhere}
+.rn{color:var(--muted);text-align:right;width:1%}
+.ty{display:block;font:400 11px "JetBrains Mono",ui-monospace,monospace;color:var(--muted)}
+.nul{color:var(--muted);font-style:italic;background:var(--bg);border-radius:4px;padding:0 5px}
+.sh{margin:18px 0 6px;font-size:15px}
+.mono{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:13px}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--log-bg);color:var(--log-ink);padding:10px 16px;border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.3);max-width:min(520px,calc(100vw - 32px));z-index:40;opacity:0;pointer-events:none;transition:opacity .2s}
+#toast.show{opacity:1}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+  <div class="bar1">
+    <a class="brand" href="#overview" aria-label="Key explorer, go to overview"><svg viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'><rect width='32' height='32' rx='7' fill='#0f6b63'/><circle cx='11' cy='16' r='4.5' fill='none' stroke='white' stroke-width='3'/><path d='M15.5 16H27M23 16v4.5M27 16v4.5' fill='none' stroke='white' stroke-width='3' stroke-linecap='round'/></svg>Key explorer</a>
+    <span class="pill" id="pill"><i></i><span id="pillT">Not connected</span></span>
+    <button class="theme" id="theme" type="button">Switch theme</button>
+  </div>
+  <nav class="tabs" id="nav" aria-label="Key pages"><div class="tabs-in" id="tabsIn"></div></nav>
+</header>
+<main id="main" tabindex="-1">
+  <div class="head"><h1 id="title"></h1><p class="def" id="def"></p><p class="plain" id="plain"></p></div>
+  <section class="card controls" id="controls" aria-labelledby="ctlT">
+    <div><h2 id="ctlT">Control panel</h2><p class="cinfo" id="cinfo"></p></div>
+    <div class="ctl">
+      <button class="btn ghost" id="cfgbtn" type="button">Connection setup</button>
+      <button class="btn ghost" id="reset" type="button">Reset sample data</button>
+      <button class="btn ghost" id="clr" type="button">Clear history</button>
+    </div>
+  </section>
+  <div id="view"></div>
+</main>
+<dialog id="cfg" aria-labelledby="cfgTitle">
+  <form id="cfgForm" class="dlg" autocomplete="off">
+    <h2 id="cfgTitle">Supabase setup</h2>
+    <p class="hint" style="margin-top:0">Find both values in your Supabase project under Project Settings, then API.</p>
+    <label class="f" for="sbUrl">Project URL</label>
+    <input id="sbUrl" type="text" inputmode="url" spellcheck="false" autocomplete="off" placeholder="https://abcdxyz.supabase.co">
+    <label class="f" for="sbKey">Publishable key</label>
+    <div class="keyrow">
+      <input id="sbKey" type="password" spellcheck="false" autocomplete="off" placeholder="sb_publishable_… or anon key">
+      <button class="chip" id="showkey" type="button">Show</button>
+    </div>
+    <label class="rem"><input type="checkbox" id="remember" checked> Remember on this device</label>
+    <p class="hint" id="connMsg" aria-live="polite"></p>
+    <div class="dlgfoot">
+      <button class="chip gap" id="disc" type="button" hidden>Disconnect and forget</button>
+      <button class="btn ghost" id="cfgclose" type="button">Close</button>
+      <button class="btn" id="connect" type="submit">Connect</button>
+    </div>
+  </form>
+</dialog>
+<dialog id="rst" aria-labelledby="rstT">
+  <form id="rstForm" class="dlg" autocomplete="off">
+    <h2 id="rstT">Reset sample data?</h2>
+    <p class="hint" style="margin-top:0">This puts your practice tables back to how they started.</p>
+    <ul class="rl"><li>Rows you added or changed are removed.</li><li>The starting rows come back: 4 regions, 3 engines, 7 versions and 5 deployments.</li><li>Your saved query history is kept.</li></ul>
+    <label class="rem"><input type="checkbox" id="rstOk"> I understand my added rows will be removed</label>
+    <div class="dlgfoot"><button class="btn ghost" id="rstClose" type="button">Cancel</button><button class="btn danger" id="rstGo" type="submit" disabled>Reset now</button></div>
+  </form>
+</dialog>
+<dialog id="rowdlg" aria-labelledby="rowT">
+  <form id="rowForm" class="dlg" autocomplete="off">
+    <h2 id="rowT"></h2>
+    <p class="hint" id="rowHelp" style="margin-top:0"></p>
+    <div id="rowFields"></div>
+    <div class="res no" id="rowErr" hidden aria-live="polite"></div>
+    <div class="dlgfoot"><button class="btn ghost" id="rowCancel" type="button">Cancel</button><button class="btn" id="rowSave" type="submit">Save</button></div>
+  </form>
+</dialog>
+<dialog id="deldlg" aria-labelledby="delT">
+  <div class="dlg">
+    <h2 id="delT">Delete this row?</h2>
+    <p id="delSum" style="margin:6px 0 0"></p>
+    <p class="hint" style="margin-top:8px">Linked rows are protected: if other rows still use this one, the database will refuse. This cannot be undone, but Reset sample data brings the starting rows back.</p>
+    <div class="res no" id="delErr" hidden aria-live="polite"></div>
+    <div class="dlgfoot"><button class="btn ghost" id="delCancel" type="button">Cancel</button><button class="btn danger" id="delGo" type="button">Delete row</button></div>
+  </div>
+</dialog>
+<datalist id="dl-env"><option value="Production"><option value="Staging"><option value="Development"></datalist>
+<datalist id="dl-eng"></datalist><datalist id="dl-ver"></datalist><datalist id="dl-reg"></datalist>
+<div id="toast" role="status" aria-live="polite"></div>
+<script>
+(function(){
+var $=function(s){return document.querySelector(s)};
+function esc(s){return String(s==null?'NULL':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+var toastT;
+function toast(m){var t=$('#toast');t.textContent=m;t.className='show';clearTimeout(toastT);toastT=setTimeout(function(){t.className=''},3800)}
+var sb=null,connected=false,busy=false,host='',connMsg='',cfg={url:'',key:''};
+var rawLog=[];
+var db={engines:[],engine_versions:[],regions:[],deployments:[]},hist=[],lastKey=null,res=null;
+var TABLES=['engines','engine_versions','regions','deployments'];
+
+/* ---------- plain-English reasons for real Postgres errors ---------- */
+function why(e){
+  var m=e.message||'',c=e.code;
+  if(c==='23505'){
+    if(/engines_pkey/.test(m))return 'Another engine already has this primary key value, so the two rows could not be told apart.';
+    if(/engine_versions_pkey/.test(m))return 'This exact pair of engine and version already exists. Either column alone may repeat, but the pair may not.';
+    if(/regions_code_key/.test(m))return 'The region code is an alternate key, so it must stay unique.';
+    if(/deployments_name_key/.test(m))return 'The deployment name is an alternate key. It could have been the primary key, so the database keeps it unique.';
+    return 'A primary key or alternate key rule was broken: the value already exists.';
+  }
+  if(c==='23503'){
+    if(/update or delete/.test(m))return 'Other rows still point to this row. “on delete restrict” blocks the delete so nothing is left pointing at a missing row.';
+    if(/region_id/.test(m))return 'That region id does not exist in regions. A foreign key must point to a real primary key value.';
+    if(/engine_versions_engine_fkey/.test(m))return 'That engine does not exist in the engines table.';
+    if(/engine_version/.test(m))return 'That engine and version pair does not exist in engine_versions.';
+    return 'A foreign key points to a value that does not exist.';
+  }
+  if(c==='23514'){
+    if(/storage_gb/.test(m))return 'Storage must be a whole number from 20 to 2000 GB (the allowed range).';
+    if(/environment/.test(m))return 'Environment must be Production, Staging or Development.';
+    return 'A value is outside what that column allows.';
+  }
+  if(c==='23502')return 'A required column was left empty. Primary keys and NOT NULL columns can never be NULL.';
+  if(c==='22P02')return 'A value has the wrong data type, such as text where a number is expected.';
+  if(c==='42501')return 'Permission or Row Level Security blocked this. Run the latest schema.sql in the SQL Editor.';
+  if(c==='42P01'||c==='PGRST205')return 'A table is missing. Run schema.sql in the SQL Editor first.';
+  if(c==='PGRST202')return 'The reset function is missing. Run the latest schema.sql in the SQL Editor.';
+  return m||'Unknown error';
+}
+function isSecret(key){
+  if(/^sb_secret_/.test(key))return true;
+  try{return JSON.parse(atob(key.split('.')[1])).role==='service_role'}catch(e){return false}
+}
+
+/* ---------- data layer: every call below is a real query ---------- */
+function loadAll(){
+  return Promise.all(TABLES.map(function(t){
+    var q=sb.from(t).select('*');
+    q=t==='regions'?q.order('id'):t==='engines'?q.order('name'):t==='engine_versions'?q.order('engine').order('version'):q.order('created_at').order('name');
+    return q.then(function(r){if(r.error)throw r.error;db[t]=r.data});
+  }));
+}
+function loadHist(){
+  return sb.from('query_log').select('*').order('id',{ascending:false}).limit(200).then(function(r){if(r.error)throw r.error;rawLog=r.data;hist=r.data.slice(0,12)});
+}
+function q(v){return v==null?'null':typeof v==='number'?String(v):"'"+String(v).replace(/'/g,"''")+"'"}
+function sqlIns(t,r){var k=Object.keys(r);return 'insert into '+t+' ('+k.join(', ')+') values ('+k.map(function(x){return q(r[x])}).join(', ')+');'}
+function rowKey(t,r){return t==='engines'?r.name:t==='engine_versions'?r.engine+'|'+r.version:r.id}
+function fail(e){busy=false;res={ok:false,code:e.code||'network',msg:e.message||'Request failed',why:e.code?why(e):'Could not reach Supabase. Check your connection and the project URL.',sql:''};toast(res.why);['#rowSave','#delGo'].forEach(function(x){var b=$(x);if(b)b.disabled=false});drawAll()}
+/* record the attempt in query_log, refresh tables and history, then redraw */
+function finish(key,sql,err,okMsg){
+  res=err?{ok:false,code:err.code||'error',msg:err.message,det:err.details,why:why(err),sql:sql}:{ok:true,msg:okMsg,sql:sql};
+  return sb.from('query_log').insert({key_type:key,statement:sql,succeeded:!err,error_code:err?(err.code||'error'):null,message:err?err.message:null})
+    .then(function(){return Promise.all([loadAll(),loadHist()])})
+    .then(function(){busy=false;drawAll()}).catch(fail);
+}
+function insMsg(t,r){
+  if(t==='engines')return 'Row added to engines.';
+  if(t==='engine_versions')return 'Row added. The pair ('+r.engine+', '+r.version+') is new, even if each part appears elsewhere.';
+  if(t==='regions')return 'Row added. The database chose id = '+r.id+' by itself.';
+  return 'Row added. The database generated id = '+String(r.id).slice(0,8)+'… by itself.';
+}
+
+var COLS={
+  engines:[{k:'name',b:['PK']}],
+  engine_versions:[{k:'engine',b:['PK','FK']},{k:'version',b:['PK']}],
+  regions:[{k:'id',b:['PK']},{k:'code',b:['AK']},{k:'label',b:[]}],
+  deployments:[{k:'id',b:['PK']},{k:'name',b:['AK']},{k:'environment',b:[]},{k:'engine',b:['FK']},{k:'engine_version',b:['FK']},{k:'region_id',b:['FK']},{k:'storage',b:[]}]
+};
+var FIELDS={
+  engines:{name:{l:'Engine name',v:'Redis'}},
+  engine_versions:{engine:{l:'Engine',v:'PostgreSQL'},version:{l:'Version',v:'18'}},
+  regions:{code:{l:'Region code',v:'ap-northeast-1'},label:{l:'Label',v:'Tokyo'}},
+  deployments:{name:{l:'Deployment name',v:'inventory-prod'},environment:{l:'Environment',v:'Production'},engine:{l:'Engine',v:'PostgreSQL'},engine_version:{l:'Engine version',v:'16'},region_id:{l:'Region id',v:'1',t:'number'},storage:{l:'Storage (GB)',v:'100',t:'number'}}
+};
+var DEPCOLS=['id','name','environment','engine','storage','region_id'];
+
+var TABS=[
+{id:'overview',n:'Overview',def:'Keys uniquely identify records, connect tables and protect data integrity. Pick a key on the left, then try to break it. Every attempt runs as a real query in your Supabase database.'},
+{id:'primary',n:'Primary key',def:'A primary key is a column (or set of columns) that uniquely identifies each record in a table. It cannot be NULL or duplicated.',
+ tb:['engines'],form:{table:'engines',f:['name'],btn:'Insert engine'},
+ try:[{l:'Duplicate “MySQL”',s:{name:'MySQL'}},{l:'Empty value',s:{name:''}},{l:'New engine “Redis”',s:{name:'Redis'}}],
+ note:'Each value must be unique and can never be NULL. It identifies one and only one row, which also makes searching fast.',
+ sql:"create table engines (\n  name text primary key\n);"},
+{id:'candidate',n:'Candidate key',def:'A candidate key is a column or set of columns that can uniquely identify a record. A table can have several.',
+ tb:['deployments'],bd:{deployments:{id:['CK'],name:['CK']}},extra:'check',
+ pre:[['id'],['name'],['environment'],['engine'],['environment','storage']],
+ note:'A real key must stay unique for every future row, not only today’s rows. The checker only sees today’s data, so use judgement: two deployments can share a storage size tomorrow, but should never share a name.',
+ sql:"-- Candidate keys of deployments: id and name.\n-- Both are unique and not null.\nid   uuid primary key default gen_random_uuid(),\nname text not null unique"},
+{id:'alternate',n:'Alternate key',def:'An alternate key is a candidate key that was not chosen as the primary key. It can still uniquely identify records.',
+ tb:['deployments'],bd:{deployments:{id:['PK'],name:['AK']}},form:{table:'deployments',f:['name'],btn:'Insert deployment'},
+ try:[{l:'Reuse “orders-prod”',s:{name:'orders-prod'}},{l:'New name',s:{name:'inventory-prod'}}],
+ note:'id and name could both identify a deployment. We picked id as the primary key, so name became an alternate key. The database still refuses duplicate names.',
+ sql:"id   uuid primary key default gen_random_uuid(),  -- chosen: primary key\nname text not null unique                      -- not chosen: alternate key"},
+{id:'composite',n:'Composite key',def:'A composite key is a combination of two or more columns that together uniquely identify each record in a table.',
+ tb:['engine_versions'],form:{table:'engine_versions',f:['engine','version'],btn:'Insert version'},
+ try:[{l:'PostgreSQL 16 again',s:{engine:'PostgreSQL',version:'16'}},{l:'PostgreSQL 18',s:{engine:'PostgreSQL',version:'18'}},{l:'MySQL 7.0 (7.0 already exists for MongoDB)',s:{engine:'MySQL',version:'7.0'}},{l:'Engine “Oracle”',s:{engine:'Oracle',version:'23'}}],
+ note:'Neither column is unique alone: PostgreSQL appears three times and version 8.0 appears twice. Only the pair is unique.',
+ sql:"create table engine_versions (\n  engine  text not null references engines(name) on update cascade,\n  version text not null,\n  primary key (engine, version)\n);"},
+{id:'super',n:'Super key',def:'A super key is any combination of columns that can uniquely identify a record. It may include extra columns.',
+ tb:['deployments'],extra:'check',pre:[['id'],['id','name'],['name','environment'],['environment']],
+ note:'Every candidate key is a super key, but a super key may carry extra columns. {id, name} is unique, yet one of its columns can be removed and it stays unique. A super key is a concept you reason about, not something you declare in SQL.',
+ sql:"-- Nothing to declare. For deployments, these are super keys:\n--   {id}   {name}   {id, name}   {id, environment}\n-- The smallest ones, {id} and {name}, are the candidate keys."},
+{id:'foreign',n:'Foreign key',def:'A foreign key is a column in one table that refers to the primary key of another table.',
+ tb:['regions','deployments'],join:1,form:{table:'deployments',f:['engine','engine_version','region_id'],btn:'Insert deployment'},
+ try:[{l:'Region 3',s:{region_id:'3'}},{l:'Region 99',s:{region_id:'99'}},{l:'PostgreSQL 99',s:{engine_version:'99'}}],
+ note:'region_id in deployments must match an id in regions. The joined column shows the link being followed. The pair (engine, engine_version) is a composite foreign key to engine_versions.',
+ sql:"region_id integer not null\n  references regions(id) on delete restrict,\n\nforeign key (engine, engine_version)\n  references engine_versions(engine, version)"},
+,
+{id:'crud',n:'CRUD',def:'',tb:[]},
+{id:'database',n:'Database',def:'',tb:[]}
+];
+TABS=['overview','database','crud','primary','foreign','candidate','composite','alternate','super'].map(function(id){return TABS.filter(function(t){return t.id===id})[0]});
+
+var COPY={
+database:{n:'Database',h:'Database: browse your raw data',def:'See every table exactly as it is stored: all columns, full values, structure and live queries.',plain:'Like opening the filing cabinet itself: every drawer (table) and every card (row), exactly as written, with nothing summarised.'},
+crud:{n:'CRUD',h:'CRUD: manage your data',def:'Create, Read, Update and Delete the rows in your real Supabase database.',plain:'Like a class register you can actually write in: add a student, fix a typo, remove someone who left. The database still refuses anything that breaks its rules.'},
+overview:{n:'Overview',def:'Keys are the rules that keep a database tidy. Pick a page, try to break the rule, and your Supabase database gives the real answer.',plain:'Think of a school register: every student has one unique ID, and every class sign-up points to a real student.'},
+primary:{n:'Primary key',def:'The one column that gives every row its own unique, never-empty label.',plain:'Like a student ID number: no two students share one, and nobody is without one.'},
+foreign:{n:'Foreign key',def:'A column that points to a row in another table, so the two tables stay connected.',plain:'Like writing a student’s ID on a sign-up sheet instead of copying their whole record.'},
+candidate:{n:'Candidate key',def:'Any column, or group of columns, that could identify a row on its own.',plain:'A student can be found by ID number or by school email. Either one could be the label.'},
+composite:{n:'Composite key',def:'A label made from two or more columns used together.',plain:'Like a theatre seat: “B” and “12” mean little alone, but “B12” is exactly one seat.'},
+alternate:{n:'Alternate key',def:'A candidate key you did not pick as the main label. It must still be unique.',plain:'The ID number is the main label, so the email is the backup label. No two students can share it.'},
+super:{n:'Super key',def:'Any group of columns that identifies a row, even if it carries extras.',plain:'A student ID plus their favourite colour still points to one student. The colour is just extra baggage.'}
+};
+TABS.forEach(function(t){var c=COPY[t.id];t.n=c.n;t.h=c.h;t.def=c.def;t.plain=c.plain;if(c.note)t.note=c.note});
+var tab=TABS[0];
+function cur(){return tab}
+
+/* ---------- drawing ---------- */
+function tbl(name,t){
+  var ov=(t.bd||{})[name]||{},h='<div class="tname">'+name+'</div><div class="scroll"><table><thead><tr>';
+  COLS[name].forEach(function(c){var b=ov[c.k]||c.b;h+='<th>'+c.k+b.map(function(x){return '<span class="b b-'+x+'">'+x+'</span>'}).join('')+'</th>'});
+  if(name==='deployments'&&t.join)h+='<th>region (joined)</th>';
+  h+='</tr></thead><tbody>';
+  if(!db[name].length)h+='<tr><td colspan="9">No rows. Use Reset sample data to restore them.</td></tr>';
+  db[name].forEach(function(r){
+    h+='<tr'+(name+':'+rowKey(name,r)===lastKey?' class="new"':'')+'>';
+    COLS[name].forEach(function(c){var v=r[c.k];if(name==='deployments'&&c.k==='id')v=String(v).slice(0,8)+'…';h+='<td>'+esc(v)+'</td>'});
+    if(name==='deployments'&&t.join){var g=db.regions.filter(function(x){return x.id===r.region_id})[0];h+='<td>'+esc(g?g.label:'')+'</td>'}
+    h+='</tr>';
+  });
+  return h+'</tbody></table></div>';
+}
+function drawHist(){
+  var h=$('#hist');if(!h)return;
+  h.innerHTML=hist.length?'<div class="scroll"><table><thead><tr><th>Time</th><th>Page</th><th>Statement that ran</th><th>Result</th></tr></thead><tbody>'+
+    hist.map(function(x){
+      var t=TABS.filter(function(z){return z.id===x.key_type})[0];
+      return '<tr><td>'+esc(new Date(x.created_at).toLocaleTimeString())+'</td><td>'+esc(t?t.n:x.key_type)+'</td><td class="sql">'+esc(x.statement)+'</td><td>'+(x.succeeded?'<span class="ok-t">Accepted</span>':'<span class="no-t">Not allowed</span> <span class="hint">'+esc(x.error_code)+'</span>')+'</td></tr>'}).join('')+
+    '</tbody></table></div>':'<p class="hint">Nothing yet. Every statement you run on the key pages is stored here, in your query_log table.</p>';
+}
+function showRes(){
+  var r=res,e=$('#res');if(!e)return;
+  if(r){
+    e.hidden=false;e.className='res '+(r.ok?'ok':'no');
+    e.innerHTML=(r.ok?'<b>Accepted.</b> '+esc(r.msg):'<b>Not allowed.</b> '+esc(r.why))+
+      (r.sql?'<code>Ran: '+esc(r.sql)+'</code>':'')+(r.ok?'':'<code>Technical details (code '+esc(r.code)+'): '+esc(r.msg)+(r.det?' · '+esc(r.det):'')+'</code>');
+  }else e.hidden=true;
+}
+function drawAll(){
+  var t=cur();
+  if(t.id==='crud'){drawCrud();showRes();drawHist()}
+  else if(t.id==='database')drawDb();
+  else if($('#tables')){$('#tables').innerHTML=t.tb.map(function(n){return tbl(n,t)}).join('');showRes();runCheck();drawHist()}
+  else drawHist();
+  [].forEach.call(document.querySelectorAll('main .btn,main .chip'),function(b){b.disabled=busy});
+}
+function formHTML(t){
+  if(!t.form)return '';
+  var h='<form id="f" class="ff" autocomplete="off">';
+  t.form.f.forEach(function(id){var d=FIELDS[t.form.table][id];
+    h+='<div><label class="f" for="in-'+id+'">'+d.l+'</label><input id="in-'+id+'" type="'+(d.t||'text')+'" value="'+esc(d.v)+'"></div>'});
+  h+='<button class="btn" type="submit">'+t.form.btn+'</button></form>';
+  if(t.try){h+='<div class="chips"><span class="hint">Quick tests:</span>';
+    t.try.forEach(function(c,i){h+='<button type="button" class="chip" data-try="'+i+'">'+c.l+'</button>'});h+='</div>'}
+  return h;
+}
+function extraHTML(t){
+  var h='';
+  if(t.extra==='check'){
+    h='<p class="hint">Tick columns of deployments. Is that set a key? The check uses the rows currently in your database.</p><div class="checks" id="cols">'+
+      DEPCOLS.map(function(c){return '<label><input type="checkbox" value="'+c+'"'+(c==='id'?' checked':'')+'>'+c+'</label>'}).join('')+'</div>'+
+      '<div class="chips"><span class="hint">Presets:</span>'+t.pre.map(function(p,i){return '<button type="button" class="chip" data-pre="'+i+'">{'+p.join(', ')+'}</button>'}).join('')+'</div>'+
+      '<div class="res" id="chk"></div>';
+  }
+  return h;
+}
+function uniq(cs){
+  var seen={};
+  return db.deployments.every(function(r){var k=cs.map(function(c){return String(r[c])}).join('\u0001');if(seen[k])return false;seen[k]=1;return true});
+}
+function runCheck(){
+  var box=$('#chk');if(!box)return;
+  var cs=[].slice.call(document.querySelectorAll('#cols input:checked')).map(function(i){return i.value}),set='{'+cs.join(', ')+'}';
+  if(!cs.length){box.className='res';box.textContent='Tick at least one column.';return}
+  if(!uniq(cs)){box.className='res no';box.innerHTML='<b>Not a key.</b> '+set+' repeats in at least two rows, so it cannot identify a single record.';return}
+  var extra=cs.length>1?cs.filter(function(c){return uniq(cs.filter(function(x){return x!==c}))}):[];
+  box.className='res ok';
+  box.innerHTML=!extra.length?'<b>Candidate key.</b> '+set+' is unique and no column can be removed. It is also a super key.'
+    :'<b>Super key, but not a candidate key.</b> '+set+' is unique, yet you can remove '+extra.join(' or ')+' and it stays unique.';
+}
+function overview(){
+  var rows=[['database','Database','Browse raw tables, see the structure, and run live queries','5 tables'],['crud','CRUD','Add, edit and delete rows in your real database','all four tables'],['primary','Primary key','Gives every row a unique, never-empty label','engines.name'],['foreign','Foreign key','Links a row to a row in another table','deployments.region_id'],['candidate','Candidate key','A column that could identify a row','id, name'],['composite','Composite key','Two or more columns used together as one label','(engine, version)'],['alternate','Alternate key','A backup label that must stay unique','deployments.name'],['super','Super key','Any group of columns that identifies a row, extras allowed','{id, name}']];
+  return '<section class="card"><h2>All the keys at a glance</h2><div class="scroll"><table><thead><tr><th>Key</th><th>Purpose</th><th>Example here</th></tr></thead><tbody>'+
+    rows.map(function(r){return '<tr><td><a href="#'+r[0]+'">'+r[1]+'</a></td><td>'+r[2]+'</td><td>'+r[3]+'</td></tr>'}).join('')+
+    '</tbody></table></div></section><section class="card"><h2>How to use this page</h2><p>Each page shows live tables from your Supabase database. Insert a row, delete one, or test a column, and Postgres itself accepts or rejects it, so the error you see is the real one. Key columns carry badges: <span class="b b-PK">PK</span> primary, <span class="b b-FK">FK</span> foreign, <span class="b b-AK">AK</span> alternate, <span class="b b-CK">CK</span> candidate. Reset sample data restores the starting rows.</p></section>';
+}
+function render(){
+  var t=cur();
+  $('#title').textContent=t.h||t.n;$('#def').textContent=t.def;$('#plain').innerHTML='<b>In plain words:</b> '+esc(t.plain);
+  document.title=t.n+' · Database key explorer';
+  [].forEach.call(document.querySelectorAll('#nav a'),function(a){if(a.getAttribute('href')==='#'+t.id)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
+  if(!connected){$('#view').innerHTML='<section class="card"><h2>Connect to your database first</h2><p>1. Run <b>schema.sql</b> in the Supabase SQL Editor.<br>2. Open Connection setup in the Control panel, paste your project URL and publishable key, then press Connect.</p><div class="chips"><button class="chip" id="cfgopen" type="button">Open setup</button></div>'+(connMsg?'<p class="hint">'+esc(connMsg)+'</p>':'')+'</section>';return}
+  var hist='<section class="card"><div class="hh"><h2>Saved query history</h2></div><div id="hist"></div></section>';
+  if(t.id==='overview'){$('#view').innerHTML=overview()+hist;drawHist();return}
+  if(t.id==='crud'){$('#view').innerHTML=crudHTML()+hist;drawAll();return}
+  if(t.id==='database'){$('#view').innerHTML=dbHTML();drawDb();Promise.all([loadAll(),loadHist()]).then(drawDb).catch(fail);return}
+  $('#view').innerHTML='<section class="card"><h2>Sample data</h2><div id="tables"></div></section>'+
+    '<section class="card"><h2>Try it</h2>'+formHTML(t)+extraHTML(t)+'<div id="res" class="res" aria-live="polite" hidden></div></section>'+
+    '<section class="card"><h2>What to notice</h2><p>'+t.note+'</p></section>'+
+    '<section class="card"><h2>The SQL behind it</h2><pre>'+esc(t.sql)+'</pre></section>'+hist;
+  drawAll();
+}
+function drawConn(){
+  var p=$('#pill'),pt=$('#pillT'),ci=$('#cinfo'),m=$('#connMsg'),x=$('#disc'),c=$('#connect');
+  if(p)p.className='pill'+(connected?' on':'');
+  if(pt)pt.textContent=connected?'Connected':'Not connected';
+  if(ci)ci.textContent=connected?'Connected to '+host+'. Every attempt runs as a real query and is saved.':'Not connected yet. Open Connection setup to link your Supabase project.';
+  if(m){m.textContent=connected?'Connected. Every attempt runs as a real query and is saved.':(connMsg||'Never paste the secret key here. Only the publishable (anon) key belongs in browser code.');m.className='hint'+(connected?' okmsg':'')}
+  if(x)x.hidden=!connected;
+  if(c)c.textContent=connected?'Reconnect':'Connect';
+}
+function openCfg(){
+  var d=$('#cfg');if(!d)return;
+  drawConn();
+  if(d.showModal){if(!d.open)d.showModal()}else d.setAttribute('open','');
+  var f=$(connected?'#cfgclose':'#sbUrl');if(f)f.focus();
+}
+function openRst(){
+  if(!connected){toast('Connect to Supabase first, then you can reset.');openCfg();return}
+  var d=$('#rst');$('#rstOk').checked=false;$('#rstGo').disabled=true;
+  if(d.showModal){if(!d.open)d.showModal()}else d.setAttribute('open','');
+  $('#rstClose').focus();
+}
+function closeRst(){var d=$('#rst');if(d.close)d.close();else d.removeAttribute('open')}
+function closeCfg(){var d=$('#cfg');if(!d)return;if(d.close)d.close();else d.removeAttribute('open')}
+
+
+/* ---------- Database system: raw tables, structure, queries ---------- */
+var ALLT=['engines','engine_versions','regions','deployments','query_log'];
+var dbView='data',dbT='deployments',dbQ='';
+var QDEF={t:'deployments',cols:[],col:'',op:'eq',val:'',ord:'',dir:'asc',lim:50};
+var qf=Object.assign({},QDEF),qres=null;
+var SCHEMA={
+  engines:{d:'The database software you can choose from.',cols:[['name','text','no','',['PK']]],rules:['The name is the primary key: unique and never empty.']},
+  engine_versions:{d:'Which versions each engine offers.',cols:[['engine','text','no','',['PK','FK']],['version','text','no','',['PK']]],rules:['The pair (engine, version) is a composite primary key, so the pair must be new.','The engine must exist in engines.']},
+  regions:{d:'The places where deployments can run.',cols:[['id','integer','no','generated identity',['PK']],['code','text','no','',['AK']],['label','text','no','',[]]],rules:['The id is generated by the database and never changes.','The code is an alternate key: it must be unique.','A region that deployments still use cannot be deleted.']},
+  deployments:{d:'One row per database deployment.',cols:[['id','uuid','no','gen_random_uuid()',['PK']],['name','text','no','',['AK']],['environment','text','no','',[]],['engine','text','no','',['FK']],['engine_version','text','no','',['FK']],['region_id','integer','no','',['FK']],['size','text','no',"'Small'",[]],['storage','storage_gb (integer)','no','100',[]],['high_availability','boolean','no','true',[]],['backups_enabled','boolean','no','true',[]],['retention_days','integer','yes','',[]],['status','text','no',"'Running'",[]],['created_at','timestamptz','no','now()',[]]],rules:['The id is generated by the database and never changes.','The name is an alternate key: it must be unique.','Allowed values: environment is Production, Staging or Development, size is Small, Medium or Large, retention is 7, 14 or 30 days.','Allowed values: storage is a whole number from 20 to 2000.','Linked rows: the region and the engine version must exist.']},
+  query_log:{d:'Every statement the explorer has run, saved by the page itself.',cols:[['id','bigint','no','generated identity',['PK']],['key_type','text','no','',[]],['statement','text','no','',[]],['succeeded','boolean','no','',[]],['error_code','text','yes','',[]],['message','text','yes','',[]],['created_at','timestamptz','no','now()',[]]],rules:['The id is generated by the database.','error_code and message stay empty (NULL) when a statement is accepted.']}
+};
+var REL=[
+  {from:'deployments',to:'regions',a:'deployments.region_id',b:'regions.id',d:'each deployment runs in one region, and a region in use cannot be deleted.'},
+  {from:'deployments',to:'engine_versions',a:'deployments.(engine, engine_version)',b:'engine_versions.(engine, version)',d:'a deployment must use an engine version that exists.'},
+  {from:'engine_versions',to:'engines',a:'engine_versions.engine',b:'engines.name',d:'a version belongs to an engine that exists.'}
+];
+var QEX=[
+  {l:'Production deployments',s:{t:'deployments',col:'environment',op:'eq',val:'Production'}},
+  {l:'Storage over 100 GB',s:{t:'deployments',col:'storage',op:'gt',val:'100',ord:'storage',dir:'desc'}},
+  {l:'Names containing “prod”',s:{t:'deployments',col:'name',op:'like',val:'prod'}},
+  {l:'Only name and region',s:{t:'deployments',cols:['name','region_id']}},
+  {l:'Rejected statements',s:{t:'query_log',col:'succeeded',op:'eq',val:'false',ord:'id',dir:'desc'}}
+];
+var OPS=[['eq','equals'],['neq','does not equal'],['like','contains'],['gt','is greater than'],['lt','is less than'],['null','is empty'],['notnull','is not empty']];
+function rowsOf(t){return t==='query_log'?rawLog:db[t]}
+function kb(m){return m?m[4].map(function(x){return '<span class="b b-'+x+'">'+x+'</span>'}).join(''):''}
+function rawTbl(t,cols,rows){
+  var meta={};SCHEMA[t].cols.forEach(function(c){meta[c[0]]=c});
+  var h='<div class="scroll raw"><table><thead><tr><th class="rn">#</th>'+cols.map(function(k){var m=meta[k];return '<th>'+k+kb(m)+(m?'<span class="ty">'+esc(m[1])+'</span>':'')+'</th>'}).join('')+'</tr></thead><tbody>';
+  if(!rows.length)h+='<tr><td colspan="'+(cols.length+1)+'">No rows.</td></tr>';
+  rows.forEach(function(r,i){h+='<tr><td class="rn">'+(i+1)+'</td>'+cols.map(function(k){var v=r[k];return '<td'+(/statement|message/.test(k)?' class="sql"':'')+'>'+(v==null?'<span class="nul">NULL</span>':esc(typeof v==='object'?JSON.stringify(v):v))+'</td>'}).join('')+'</tr>'});
+  return h+'</tbody></table></div>';
+}
+function dbHTML(){
+  return '<div class="stats" id="stats"></div><section class="card"><div class="hh"><div class="chips" role="group" aria-label="Database views" style="margin:0">'+
+    [['data','Raw data'],['structure','Structure'],['query','Query builder']].map(function(v){return '<button type="button" class="chip" data-dv="'+v[0]+'" aria-pressed="false">'+v[1]+'</button>'}).join('')+
+    '</div><button class="btn ghost" type="button" data-act="dbrefresh">Refresh</button></div><div id="dbBody"></div></section>';
+}
+function dataView(){
+  var t=dbT;
+  return '<p class="hint" style="margin-bottom:10px"><b>'+t+'</b>: '+esc(SCHEMA[t].d)+' Values are shown exactly as stored.</p>'+
+    '<div class="ff"><div><label class="f" for="dbSearch">Search raw rows</label><input id="dbSearch" type="search" placeholder="Type to filter" value="'+esc(dbQ)+'"></div><span class="pillc" id="dbCount"></span>'+
+    '<button class="btn ghost" type="button" data-act="csv">Download CSV</button><button class="btn ghost" type="button" data-act="json">Download JSON</button>'+(CRUD[t]?'<button class="btn" type="button" data-act="tocrud">Edit in CRUD</button>':'')+'</div><div id="dbRows"></div>';
+}
+function drawRaw(){
+  var t=dbT,all=rowsOf(t),rows=all.filter(function(r){return !dbQ||JSON.stringify(r).toLowerCase().indexOf(dbQ.toLowerCase())>=0});
+  $('#dbRows').innerHTML=rawTbl(t,SCHEMA[t].cols.map(function(c){return c[0]}),rows);
+  $('#dbCount').textContent=rows.length+' of '+all.length+' rows · '+SCHEMA[t].cols.length+' columns';
+}
+function structView(){
+  var t=dbT,S=SCHEMA[t];
+  var h='<p class="hint" style="margin-bottom:10px"><b>'+t+'</b>: '+esc(S.d)+'</p><div class="scroll"><table><thead><tr><th>Column</th><th>Type</th><th>Required</th><th>Default</th><th>Key</th></tr></thead><tbody>'+
+    S.cols.map(function(c){return '<tr><td><b>'+c[0]+'</b></td><td class="mono">'+esc(c[1])+'</td><td>'+(c[2]==='no'?'Yes':'No')+'</td><td class="mono">'+esc(c[3]||'—')+'</td><td>'+(c[4].length?kb(c):'—')+'</td></tr>'}).join('')+'</tbody></table></div>'+
+    '<h3 class="sh">Rules on this table</h3><ul class="rl">'+S.rules.map(function(r){return '<li>'+esc(r)+'</li>'}).join('')+'</ul>';
+  var rel=REL.filter(function(r){return r.from===t||r.to===t});
+  return h+'<h3 class="sh">Links to other tables</h3>'+(rel.length?'<ul class="rl">'+rel.map(function(r){return '<li><b>'+r.a+'</b> → <b>'+r.b+'</b>: '+esc(r.d)+'</li>'}).join('')+'</ul>':'<p class="hint">This table does not link to any other table.</p>');
+}
+function queryView(){
+  var S=SCHEMA[qf.t];
+  function sel(id,opts,v){return '<select id="'+id+'">'+opts.map(function(o){return '<option value="'+o[0]+'"'+(o[0]===v?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select>'}
+  var cols=S.cols.map(function(c){return[c[0],c[0]]});
+  return '<p class="hint" style="margin-bottom:10px">Build a real query without typing SQL. It runs against your database and the statement is saved to your history.</p>'+
+    '<div class="chips"><span class="hint">Examples:</span>'+QEX.map(function(x,i){return '<button type="button" class="chip" data-qex="'+i+'">'+x.l+'</button>'}).join('')+'</div>'+
+    '<form id="qform" autocomplete="off"><div class="ff"><div><label class="f" for="qt">Table</label>'+sel('qt',ALLT.map(function(t){return[t,t]}),qf.t)+'</div>'+
+    '<div><label class="f" for="qcol">Only rows where</label>'+sel('qcol',[['','(any column, no filter)']].concat(cols),qf.col)+'</div>'+
+    '<div><label class="f" for="qop">is</label>'+sel('qop',OPS,qf.op)+'</div>'+
+    '<div><label class="f" for="qval">Value</label><input id="qval" type="text" value="'+esc(qf.val)+'"></div></div>'+
+    '<div class="ff"><div><label class="f" for="qord">Sort by</label>'+sel('qord',[['','(stored order)']].concat(cols),qf.ord)+'</div>'+
+    '<div><label class="f" for="qdir">Direction</label>'+sel('qdir',[['asc','Smallest first'],['desc','Largest first']],qf.dir)+'</div>'+
+    '<div><label class="f" for="qlim">Show up to</label><input id="qlim" type="number" min="1" max="200" value="'+qf.lim+'"></div></div>'+
+    '<p class="f" style="font-weight:600;font-size:13px;margin:6px 0 4px">Columns to show <span class="hint">(none ticked means all)</span></p><div class="checks">'+
+    S.cols.map(function(c){return '<label><input type="checkbox" data-qc value="'+c[0]+'"'+(qf.cols.indexOf(c[0])>=0?' checked':'')+'>'+c[0]+'</label>'}).join('')+'</div>'+
+    '<pre id="qsql" aria-label="SQL statement"></pre><div class="chips"><button class="btn" id="qrun" type="submit">Run query</button></div></form><div id="qres"></div>';
+}
+function isNum(t,c){var m=SCHEMA[t].cols.filter(function(x){return x[0]===c})[0];return !!m&&/integer|bigint/.test(m[1])}
+function buildSql(){
+  var f=qf,s='select '+(f.cols.length?f.cols.join(', '):'*')+' from '+f.t;
+  if(f.col){
+    if(f.op==='null')s+=' where '+f.col+' is null';
+    else if(f.op==='notnull')s+=' where '+f.col+' is not null';
+    else s+=' where '+f.col+' '+({eq:'=',neq:'<>',like:'ilike',gt:'>',lt:'<'})[f.op]+' '+q(f.op==='like'?'%'+f.val+'%':(isNum(f.t,f.col)&&f.val!==''&&!isNaN(Number(f.val))?Number(f.val):f.val));
+  }
+  if(f.ord)s+=' order by '+f.ord+' '+f.dir;
+  return s+' limit '+f.lim+';';
+}
+function qsync(){
+  if(!$('#qt'))return;
+  qf.t=$('#qt').value;qf.col=$('#qcol').value;qf.op=$('#qop').value;qf.val=$('#qval').value;
+  qf.ord=$('#qord').value;qf.dir=$('#qdir').value;qf.lim=Math.max(1,Math.min(200,parseInt($('#qlim').value,10)||50));
+  qf.cols=[].slice.call(document.querySelectorAll('#qform [data-qc]:checked')).map(function(i){return i.value});
+}
+function qprev(){
+  var e=$('#qsql');if(!e)return;
+  e.textContent=buildSql();
+  $('#qval').disabled=!qf.col||qf.op==='null'||qf.op==='notnull';
+}
+function drawQres(){
+  var e=$('#qres');if(!e)return;
+  if(!qres){e.innerHTML='';return}
+  if(qres.err){e.innerHTML='<div class="res no"><b>Not allowed.</b> '+esc(why(qres.err))+'<code>Technical details (code '+esc(qres.err.code||'error')+'): '+esc(qres.err.message)+'</code></div>';return}
+  e.innerHTML='<div class="res ok"><b>'+qres.rows.length+' row'+(qres.rows.length===1?'':'s')+' returned.</b> This is the real result from your database.</div>'+rawTbl(qres.t,qres.cols,qres.rows)+
+    '<div class="chips"><button class="btn ghost" type="button" data-act="qcsv">Download these rows as CSV</button></div>';
+}
+function drawDb(){
+  if(!$('#stats'))return;
+  $('#stats').innerHTML=ALLT.map(function(t){var n=rowsOf(t).length;return '<button type="button" class="stat" data-dt="'+t+'" aria-pressed="'+(t===dbT)+'"><span class="sn">'+n+(t==='query_log'&&n>=200?'+':'')+'</span><span class="sl">'+t+'</span></button>'}).join('');
+  [].forEach.call(document.querySelectorAll('[data-dv]'),function(b){b.setAttribute('aria-pressed',String(b.dataset.dv===dbView))});
+  $('#dbBody').innerHTML=dbView==='data'?dataView():dbView==='structure'?structView():queryView();
+  if(dbView==='data')drawRaw();
+  if(dbView==='query'){qprev();drawQres()}
+  [].forEach.call(document.querySelectorAll('main .btn,main .chip'),function(b){b.disabled=busy});
+}
+function runQuery(){
+  if(busy)return;qsync();
+  var f=qf,b=sb.from(f.t).select(f.cols.length?f.cols.join(','):'*'),v=f.val;
+  if(f.col){
+    if(f.op==='eq')b=b.eq(f.col,v);else if(f.op==='neq')b=b.neq(f.col,v);else if(f.op==='like')b=b.ilike(f.col,'%'+v+'%');
+    else if(f.op==='gt')b=b.gt(f.col,v);else if(f.op==='lt')b=b.lt(f.col,v);
+    else if(f.op==='null')b=b.is(f.col,null);else if(f.op==='notnull')b=b.not(f.col,'is',null);
+  }
+  if(f.ord)b=b.order(f.ord,{ascending:f.dir==='asc'});
+  b=b.limit(f.lim);
+  var sql=buildSql(),cols=f.cols.length?f.cols.slice():SCHEMA[f.t].cols.map(function(c){return c[0]});
+  busy=true;drawDb();
+  b.then(function(r){
+    qres={t:f.t,cols:cols,rows:r.data||[],err:r.error,sql:sql};
+    return sb.from('query_log').insert({key_type:'database',statement:sql,succeeded:!r.error,error_code:r.error?(r.error.code||'error'):null,message:r.error?r.error.message:null});
+  }).then(function(){return loadHist()}).then(function(){busy=false;drawDb()}).catch(fail);
+}
+function qExample(i){qf=Object.assign({},QDEF,QEX[i].s);qres=null;drawDb();runQuery()}
+function toCSV(cols,rows){
+  function c(v){if(v==null)return '';v=typeof v==='object'?JSON.stringify(v):String(v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
+  return [cols.join(',')].concat(rows.map(function(r){return cols.map(function(k){return c(r[k])}).join(',')})).join('\n');
+}
+function download(name,text,type){
+  var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:type}));a.download=name;
+  document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},500);
+}
+function dbAct(n){
+  var cols=SCHEMA[dbT].cols.map(function(c){return c[0]});
+  if(n==='dbrefresh'){
+    if(busy)return;busy=true;drawDb();
+    Promise.all([loadAll(),loadHist()]).then(function(){busy=false;drawDb();toast('Refreshed from your database.')}).catch(fail);
+  }else if(n==='csv'){download(dbT+'.csv',toCSV(cols,rowsOf(dbT)),'text/csv');toast('Downloaded '+dbT+'.csv')}
+  else if(n==='json'){download(dbT+'.json',JSON.stringify(rowsOf(dbT),null,2),'application/json');toast('Downloaded '+dbT+'.json')}
+  else if(n==='tocrud'){crudT=dbT;location.hash='crud'}
+  else if(n==='qcsv'&&qres&&!qres.err){download('query-result.csv',toCSV(qres.cols,qres.rows),'text/csv');toast('Downloaded query-result.csv')}
+}
+
+/* ---------- Manage data (CRUD) ---------- */
+var crudT='deployments',crudQ='',rowCtx=null;
+var CRUD={
+  deployments:{label:'Deployments',d:'Each row is one database deployment.',key:['id'],fields:[
+    {k:'name',l:'Name',h:'Must be unique. No two deployments can share a name.'},
+    {k:'environment',l:'Environment',list:'dl-env',h:'Allowed values: Production, Staging or Development.'},
+    {k:'engine',l:'Engine',list:'dl-eng',h:'Linked rows: must be an engine that exists.'},
+    {k:'engine_version',l:'Engine version',list:'dl-ver',h:'Linked rows: the engine and version pair must exist.'},
+    {k:'region_id',l:'Region id',t:'number',list:'dl-reg',h:'Linked rows: must match a region that exists.'},
+    {k:'storage',l:'Storage (GB)',t:'number',h:'Allowed values: a whole number from 20 to 2000.'}],
+    def:{environment:'Staging',engine:'PostgreSQL',engine_version:'16',region_id:'1',storage:'100'}},
+  regions:{label:'Regions',d:'The places where deployments can run.',key:['id'],fields:[
+    {k:'code',l:'Region code',h:'Must be unique.'},{k:'label',l:'Label',h:'Any name you like. Changing it never changes the ID.'}],def:{}},
+  engines:{label:'Engines',d:'The database software you can choose from.',key:['name'],fields:[
+    {k:'name',l:'Engine name',h:'Must be unique and cannot be empty.'}],def:{}},
+  engine_versions:{label:'Versions',d:'Which versions each engine offers.',key:['engine','version'],fields:[
+    {k:'engine',l:'Engine',list:'dl-eng',h:'Linked rows: must be an engine that exists.'},
+    {k:'version',l:'Version',h:'The engine and version pair must be new.'}],def:{}}
+};
+function crudHTML(){
+  function op(c,l,t,d,tag,acts){return '<article class="op op-'+c+'"><div class="oh"><span class="l" aria-hidden="true">'+l+'</span><h3>'+t+'</h3></div><p>'+d+'</p><span class="tag">'+tag+'</span><div class="oa">'+acts+'</div></article>'}
+  return '<div class="ops" role="group" aria-label="What you can do">'+
+    op('c','C','Create','Add a new row. The database makes its ID for you and only accepts allowed values.','Generated ID · Allowed values',
+      '<button class="btn" type="button" data-act="add">Add new row</button><button class="chip" type="button" data-q="env">Try “Testing”</button><button class="chip" type="button" data-q="sto">Try 5000 GB</button>')+
+    op('r','R','Read','See what is stored. Search, switch tables, or refresh to get the latest rows.','Live from Supabase',
+      '<button class="btn ghost" type="button" data-act="refresh">Refresh</button>')+
+    op('u','U','Update','Change a row. Its ID never changes, and the new values must still be allowed.','ID stays the same',
+      '<span class="hint">Press Edit on any row.</span><button class="chip" type="button" data-q="rename">Rename region 1</button>')+
+    op('d','D','Delete','Remove a row. Rows that other rows still link to are protected.','Linked rows protected',
+      '<span class="hint">Press Delete on any row.</span><button class="chip dng" type="button" data-q="delr1">Try deleting region 1</button>')+
+    '</div>'+
+    '<section class="card"><div class="hh"><div><h2>Your data</h2><p class="hint" id="tdesc"></p></div><div class="chips" id="ctabs" role="group" aria-label="Choose a table" style="margin:0">'+
+    Object.keys(CRUD).map(function(k){return '<button type="button" class="chip" data-ct="'+k+'" aria-pressed="false">'+CRUD[k].label+'</button>'}).join('')+'</div></div>'+
+    '<div class="ff"><div><label class="f" for="crudQ">Search rows</label><input id="crudQ" type="search" placeholder="Type to filter" value="'+esc(crudQ)+'"></div>'+
+    '<span class="pillc" id="crudCount"></span><button class="btn" type="button" data-act="add">Add new row</button></div>'+
+    '<div id="crudGrid"></div><div id="res" class="res" aria-live="polite" hidden></div></section>';
+}
+function fillLists(){
+  function opts(a){return a.map(function(x){return '<option value="'+esc(x[0])+'">'+esc(x[1]||'')+'</option>'}).join('')}
+  var vs=[];db.engine_versions.forEach(function(v){if(vs.indexOf(v.version)<0)vs.push(v.version)});
+  $('#dl-eng').innerHTML=opts(db.engines.map(function(e){return[e.name]}));
+  $('#dl-ver').innerHTML=opts(vs.map(function(v){return[v]}));
+  $('#dl-reg').innerHTML=opts(db.regions.map(function(g){return[g.id,g.label]}));
+}
+function drawCrud(){
+  var t=crudT,rows=db[t].filter(function(r){return !crudQ||JSON.stringify(r).toLowerCase().indexOf(crudQ.toLowerCase())>=0});
+  [].forEach.call(document.querySelectorAll('[data-ct]'),function(b){b.setAttribute('aria-pressed',String(b.dataset.ct===t))});
+  var h='<div class="scroll"><table><thead><tr>';
+  COLS[t].forEach(function(c){h+='<th>'+c.k+c.b.map(function(x){return '<span class="b b-'+x+'">'+x+'</span>'}).join('')+'</th>'});
+  if(t==='deployments')h+='<th>region</th>';
+  h+='<th>Actions</th></tr></thead><tbody>';
+  if(!rows.length)h+='<tr><td colspan="9">'+(db[t].length?'No rows match your search.':'This table is empty. Add a row, or use Reset sample data.')+'</td></tr>';
+  rows.forEach(function(r){
+    var i=db[t].indexOf(r);
+    h+='<tr'+(t+':'+rowKey(t,r)===lastKey?' class="new"':'')+'>';
+    COLS[t].forEach(function(c){var v=r[c.k];if(t==='deployments'&&c.k==='id')v=String(v).slice(0,8)+'…';h+='<td>'+esc(v)+'</td>'});
+    if(t==='deployments'){var g=db.regions.filter(function(x){return x.id===r.region_id})[0];h+='<td>'+esc(g?g.label:'')+'</td>'}
+    h+='<td><button class="chip" type="button" data-edit="'+i+'">Edit</button> <button class="chip dng" type="button" data-del="'+i+'">Delete</button></td></tr>';
+  });
+  $('#crudGrid').innerHTML=h+'</tbody></table></div>';
+  $('#tdesc').textContent=CRUD[t].d;
+  $('#crudCount').textContent=rows.length+' of '+db[t].length+' rows';
+  fillLists();
+}
+function keyOf(t,r){var o={};CRUD[t].key.forEach(function(k){o[k]=r[k]});return o}
+function sqlWhere(o){return Object.keys(o).map(function(k){return k+' = '+q(o[k])}).join(' and ')}
+function sqlUpd(t,row,o){return 'update '+t+' set '+Object.keys(row).map(function(k){return k+' = '+q(row[k])}).join(', ')+' where '+sqlWhere(o)+';'}
+function sqlDel(t,o){return 'delete from '+t+' where '+sqlWhere(o)+';'}
+function applyEq(b,o){Object.keys(o).forEach(function(k){b=b.eq(k,o[k])});return b}
+function rowLabel(t,r){return t==='engines'?r.name:t==='engine_versions'?r.engine+' '+r.version:t==='regions'?r.label+' (id '+r.id+')':r.name+' (id '+String(r.id).slice(0,8)+'…)'}
+function openDlg(sel){var d=$(sel);if(d.showModal){if(!d.open)d.showModal()}else d.setAttribute('open','')}
+function closeDlg(sel){var d=$(sel);if(d.close)d.close();else d.removeAttribute('open')}
+function showDlgErr(sel){
+  var e=$(sel),r=res;
+  if(!r||r.ok){e.hidden=true;return}
+  e.hidden=false;e.className='res no';
+  e.innerHTML='<b>Not allowed.</b> '+esc(r.why)+'<code>Technical details (code '+esc(r.code)+'): '+esc(r.msg)+(r.det?' · '+esc(r.det):'')+'</code>';
+}
+function openRow(mode,row){
+  var c=CRUD[crudT],edit=mode==='edit',vals=edit?row:c.def;
+  rowCtx={mode:mode,t:crudT,old:edit?row:null};
+  $('#rowT').textContent=(edit?'Edit a row in ':'Add a row to ')+c.label.toLowerCase();
+  var auto=(crudT==='regions'||crudT==='deployments');
+  $('#rowHelp').textContent=(edit?'Change what you need, then save. ':'Fill in the boxes, then save. ')+'The database checks every rule when you save.';
+  var h=auto?'<p class="idline">'+(edit?'ID <b>'+esc(String(row.id).slice(0,8)+(crudT==='deployments'?'…':''))+'</b> · made by the database, so it cannot be changed.':'The ID will be made by the database when you save.')+'</p>':'';
+  h+=c.fields.map(function(f){var v=vals[f.k];
+    return '<label class="f" for="rf-'+f.k+'">'+f.l+'</label><input id="rf-'+f.k+'" type="'+(f.t||'text')+'"'+(f.list?' list="'+f.list+'"':'')+' value="'+esc(v==null?'':v)+'" autocomplete="off" aria-describedby="rh-'+f.k+'"><p class="fh" id="rh-'+f.k+'">'+esc(f.h||'')+'</p>'}).join('');
+  $('#rowFields').innerHTML=h;
+  $('#rowErr').hidden=true;$('#rowSave').disabled=false;
+  openDlg('#rowdlg');
+  var f=$('#rowFields input');if(f)f.focus();
+}
+function saveRow(){
+  if(busy||!rowCtx)return;
+  var t=rowCtx.t,c=CRUD[t],edit=rowCtx.mode==='edit',row={};
+  c.fields.forEach(function(f){var v=$('#rf-'+f.k).value.trim();row[f.k]=f.t==='number'?(v===''?null:Number(v)):(v===''?null:v)});
+  var key=edit?keyOf(t,rowCtx.old):null,sql=edit?sqlUpd(t,row,key):sqlIns(t,row);
+  busy=true;$('#rowSave').disabled=true;drawAll();
+  var p=edit?applyEq(sb.from(t).update(row),key).select():sb.from(t).insert(row).select().single();
+  p.then(function(r){
+    var err=r.error,d=r.data,one=edit?(d&&d[0]):d;
+    if(!err&&!one)err={code:'42501',message:'No row was saved'};
+    if(!err)lastKey=t+':'+rowKey(t,one);
+    return finish('crud',sql,err,err?null:(edit?'Row updated. The database accepted every change.':insMsg(t,one))).then(function(){return err});
+  }).then(function(err){
+    $('#rowSave').disabled=false;
+    if(err)showDlgErr('#rowErr');else{closeDlg('#rowdlg');toast(edit?'Row updated.':'Row added.')}
+  }).catch(fail);
+}
+function openDel(i){
+  var t=crudT,r=db[t][i];if(!r)return;
+  rowCtx={mode:'del',t:t,old:r};
+  $('#delSum').textContent='You are about to delete '+rowLabel(t,r)+' from '+CRUD[t].label.toLowerCase()+'.';
+  $('#delErr').hidden=true;$('#delGo').disabled=false;
+  openDlg('#deldlg');$('#delCancel').focus();
+}
+function doDel(){
+  if(busy||!rowCtx)return;
+  var t=rowCtx.t,key=keyOf(t,rowCtx.old),sql=sqlDel(t,key);
+  busy=true;$('#delGo').disabled=true;drawAll();
+  applyEq(sb.from(t).delete(),key).select().then(function(r){
+    var err=r.error;if(!err&&!(r.data&&r.data.length))err={code:'42501',message:'No row was deleted'};
+    lastKey=null;
+    return finish('crud',sql,err,'Row deleted.').then(function(){return err});
+  }).then(function(err){
+    $('#delGo').disabled=false;
+    if(err)showDlgErr('#delErr');else{closeDlg('#deldlg');toast('Row deleted.')}
+  }).catch(fail);
+}
+function quickDone(){
+  var e=$('#res');if(e&&!e.hidden&&e.scrollIntoView)e.scrollIntoView({block:'nearest',behavior:'smooth'});
+  toast(res&&res.ok?'Done. The result is under the table.':'Not allowed. The reason is under the table.');
+}
+function noRow(){res={ok:false,code:'none',msg:'Region 1 does not exist',why:'Region 1 was deleted. Use Reset sample data to bring it back.',sql:''};crudT='regions';lastKey=null;drawAll()}
+function quick(kind){
+  if(busy)return;
+  var g=db.regions.filter(function(x){return x.id===1})[0];
+  if(kind==='env'||kind==='sto'){
+    var row={name:'demo-'+Date.now().toString(36).slice(-5),environment:kind==='env'?'Testing':'Staging',engine:'PostgreSQL',engine_version:'16',region_id:1,storage:kind==='sto'?5000:100};
+    crudT='deployments';busy=true;drawAll();
+    sb.from('deployments').insert(row).select().single().then(function(r){
+      if(!r.error)lastKey='deployments:'+rowKey('deployments',r.data);
+      return finish('crud',sqlIns('deployments',row),r.error,r.error?null:insMsg('deployments',r.data));
+    }).then(quickDone).catch(fail);
+  }else if(kind==='rename'){
+    if(!g)return noRow();
+    var label=g.label==='Singapore'?'Singapore (SG)':'Singapore',sql=sqlUpd('regions',{label:label},{id:1});
+    crudT='regions';busy=true;drawAll();
+    sb.from('regions').update({label:label}).eq('id',1).select().then(function(r){
+      var err=r.error;if(!err&&!(r.data&&r.data.length))err={code:'42501',message:'No row was updated'};
+      if(!err)lastKey='regions:1';
+      return finish('crud',sql,err,'Label changed to “'+label+'”. The ID stayed 1, so every deployment linked to region 1 is still linked.');
+    }).then(quickDone).catch(fail);
+  }else if(kind==='delr1'){
+    if(!g)return noRow();
+    crudT='regions';lastKey=null;busy=true;drawAll();
+    sb.from('regions').delete().eq('id',1).select().then(function(r){
+      var err=r.error;if(!err&&!(r.data&&r.data.length))err={code:'42501',message:'No row was deleted'};
+      return finish('crud',sqlDel('regions',{id:1}),err,'Region 1 was deleted. Nothing used it, so no row was left pointing at a missing region.');
+    }).then(quickDone).catch(fail);
+  }
+}
+function refreshData(){
+  if(busy)return;busy=true;drawAll();
+  Promise.all([loadAll(),loadHist()]).then(function(){busy=false;drawAll();toast('Refreshed from your database.')}).catch(fail);
+}
+
+/* ---------- actions ---------- */
+function submitForm(){
+  if(busy)return;
+  var t=cur(),tb=t.form.table,row={};
+  t.form.f.forEach(function(id){var v=$('#in-'+id).value.trim(),d=FIELDS[tb][id];row[id]=d.t==='number'?(v===''?null:Number(v)):(v===''?null:v)});
+  if(tb==='deployments'){
+    var base={environment:'Staging',engine:'PostgreSQL',engine_version:'16',region_id:1,size:'Small',storage:100};
+    for(var k in base)if(!(k in row))row[k]=base[k];
+    if(!('name' in row))row.name='demo-'+Date.now().toString(36).slice(-5);
+  }
+  busy=true;drawAll();
+  sb.from(tb).insert(row).select().single().then(function(r){
+    if(!r.error)lastKey=tb+':'+rowKey(tb,r.data);
+    return finish(t.id,sqlIns(tb,row),r.error,r.error?null:insMsg(tb,r.data));
+  }).catch(fail);
+}
+function resetDemo(){
+  if(busy)return;
+  if(!connected){toast('Connect to Supabase first.');return}
+  busy=true;drawAll();
+  sb.rpc('reset_demo').then(function(r){
+    if(r.error)throw r.error;
+    lastKey=null;res={ok:true,msg:'Sample data restored. Your saved query history was kept.',sql:'select reset_demo();'};
+    return Promise.all([loadAll(),loadHist()]);
+  }).then(function(){busy=false;drawAll();toast('Sample data restored. Your history was kept.')}).catch(fail);
+}
+function clearHist(){
+  if(busy)return;
+  if(!connected){toast('Connect to Supabase first.');return}
+  busy=true;drawAll();
+  sb.from('query_log').delete().gte('id',0).then(function(r){if(r.error)throw r.error;return loadHist()}).then(function(){busy=false;drawAll();toast('History cleared.')}).catch(fail);
+}
+function connect(){
+  var url=$('#sbUrl').value.trim().replace(/\/$/,''),key=$('#sbKey').value.trim();
+  cfg.url=url;cfg.key=key;
+  if(!/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(url)||!key){connMsg='Enter a project URL like https://abcdxyz.supabase.co and your publishable key.';drawConn();return}
+  if(isSecret(key)){connMsg='That is a secret key. Use the publishable (anon) key in browser code.';drawConn();return}
+  if(!window.supabase){connMsg='The Supabase library did not load. Check your internet connection.';drawConn();return}
+  sb=window.supabase.createClient(url,key);
+  connMsg='Connecting…';drawConn();
+  Promise.all([loadAll(),loadHist()]).then(function(){
+    connected=true;host=url.replace('https://','');connMsg='';
+    try{if($('#remember').checked){localStorage.setItem('sbUrl',url);localStorage.setItem('sbKey',key)}else{localStorage.removeItem('sbUrl');localStorage.removeItem('sbKey')}}catch(e){}
+    drawConn();closeCfg();route();toast('Connected to '+host+'.');
+  }).catch(function(e){connected=false;connMsg='Could not load data: '+why(e);drawConn();render()});
+}
+function route(){
+  var id=location.hash.slice(1);
+  tab=TABS.filter(function(x){return x.id===id})[0]||TABS[0];
+  res=null;lastKey=null;render();window.scrollTo(0,0);
+}
+
+/* ---------- wiring ---------- */
+$('#tabsIn').innerHTML=TABS.map(function(t){return '<a href="#'+t.id+'">'+t.n+'</a>'}).join('');
+document.addEventListener('submit',function(e){if(e.target.id==='f'){e.preventDefault();submitForm()}else if(e.target.id==='cfgForm'){e.preventDefault();connect()}else if(e.target.id==='rowForm'){e.preventDefault();saveRow()}else if(e.target.id==='qform'){e.preventDefault();runQuery()}else if(e.target.id==='rstForm'){e.preventDefault();if($('#rstOk').checked){closeRst();resetDemo()}}});
+document.addEventListener('click',function(e){
+  var el=e.target.closest('[data-try],[data-pre],[data-ct],[data-edit],[data-del],[data-act],[data-q],[data-dv],[data-dt],[data-qex],#rowCancel,#delCancel,#delGo,#theme,#cfgbtn,#cfgopen,#cfgclose,#rstClose,#showkey,#disc,#clr');if(!el)return;
+  var t=cur();
+  if(el.dataset.try!==undefined){if(busy)return;var s=t.try[+el.dataset.try].s;for(var k in s){var i=$('#in-'+k);if(i)i.value=s[k]}submitForm()}
+  else if(el.dataset.pre!==undefined){var p=t.pre[+el.dataset.pre];[].forEach.call(document.querySelectorAll('#cols input'),function(c){c.checked=p.indexOf(c.value)>=0});runCheck()}
+  else if(el.dataset.ct!==undefined){crudT=el.dataset.ct;crudQ='';var qi=$('#crudQ');if(qi)qi.value='';res=null;lastKey=null;drawAll()}
+  else if(el.dataset.edit!==undefined)openRow('edit',db[crudT][+el.dataset.edit]);
+  else if(el.dataset.del!==undefined)openDel(+el.dataset.del);
+  else if(el.dataset.act==='add')openRow('create');
+  else if(el.dataset.act==='refresh')refreshData();
+  else if(el.dataset.q!==undefined)quick(el.dataset.q);
+  else if(el.dataset.act!==undefined)dbAct(el.dataset.act);
+  else if(el.dataset.dv!==undefined){dbView=el.dataset.dv;drawDb()}
+  else if(el.dataset.dt!==undefined){dbT=el.dataset.dt;dbQ='';drawDb()}
+  else if(el.dataset.qex!==undefined)qExample(+el.dataset.qex);
+  else if(el.id==='rowCancel')closeDlg('#rowdlg');
+  else if(el.id==='delCancel')closeDlg('#deldlg');
+  else if(el.id==='delGo')doDel();
+  else if(el.id==='clr')clearHist();
+  else if(el.id==='cfgbtn'||el.id==='cfgopen')openCfg();
+  else if(el.id==='cfgclose')closeCfg();
+  else if(el.id==='rstClose')closeRst();
+  else if(el.id==='showkey'){var k=$('#sbKey');k.type=k.type==='password'?'text':'password';el.textContent=k.type==='password'?'Show':'Hide'}
+  else if(el.id==='disc'){sb=null;connected=false;connMsg='';cfg.url='';cfg.key='';$('#sbUrl').value='';$('#sbKey').value='';try{localStorage.removeItem('sbUrl');localStorage.removeItem('sbKey')}catch(x){}drawConn();render()}
+  else if(el.id==='theme'){var r=document.documentElement,dk=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;r.dataset.theme=dk?'light':'dark'}
+});
+document.addEventListener('input',function(e){
+  if(e.target.id==='crudQ'){crudQ=e.target.value.trim();drawCrud()}
+  else if(e.target.id==='dbSearch'){dbQ=e.target.value.trim();drawRaw()}
+  else if(e.target.closest&&e.target.closest('#qform')&&e.target.id!=='qt'){qsync();qprev()}
+});
+document.addEventListener('change',function(e){
+  if(e.target.id==='qt'){qf=Object.assign({},QDEF,{t:e.target.value});qres=null;drawDb()}
+  else if(e.target.closest&&e.target.closest('#qform')){qsync();qprev()}
+  if(e.target.closest('#cols'))runCheck();if(e.target.id==='rstOk')$('#rstGo').disabled=!e.target.checked});
+$('#reset').addEventListener('click',openRst);
+$('#rst').addEventListener('click',function(e){if(e.target===this)closeRst()});
+['#rowdlg','#deldlg'].forEach(function(x){$(x).addEventListener('click',function(e){if(e.target===this)closeDlg(x)})});
+window.addEventListener('hashchange',route);
+try{cfg.url=localStorage.getItem('sbUrl')||'';cfg.key=localStorage.getItem('sbKey')||''}catch(e){}
+$('#sbUrl').value=cfg.url;$('#sbKey').value=cfg.key;
+$('#cfg').addEventListener('click',function(e){if(e.target===this)closeCfg()});
+drawConn();route();
+if(cfg.url&&cfg.key)connect();
+})();
+</script>
+</body>
+</html>
